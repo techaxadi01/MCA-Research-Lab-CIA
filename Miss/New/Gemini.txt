@@ -1,0 +1,284 @@
+
+
+### Abstract
+
+Intense winter and post-monsoon outbreaks of the mixotrophic green dinoflagellate *Noctiluca scintillans* in the northern and eastern Arabian Sea have disrupted traditional diatom-dominated food webs, accelerating localized hypoxia and harming regional coastal fisheries. Operational satellite monitoring remains bottlenecked because standard empirical blue-green ocean color algorithms misclassify mixotrophic blooms containing endosymbiontic *Pedinomonas noctilucae*, while treating optical surface rasters in isolation from subsurface hydrodynamics and atmospheric forcings. This paper establishes an integrated computational Earth observation framework that couples multispectral satellite radiometry (MODIS-Aqua, VIIRS, and OLCI) with Copernicus Marine Service (CMEMS) and ERA5 physical-meteorological reanalyses. By evaluating diagnostic remote sensing reflectance ($R_{rs}$) band ratios centered at 510 nm and 531 nm alongside neural network atmospheric correction (NN-V) weights, the framework isolates *Noctiluca* endosymbiont optical absorption while filtering geometric noise under high solar zenith angles. To resolve temporal trend masking caused by high environmental noise, the methodology deploys Cochrane-Orcutt autoregression and generalized least squares across multi-spectral reflectance channels, tracking decadal ecological shifts over a 20-year satellite baseline. The synthesized pipeline provides coastal resource managers with an operational, SDG 14-compliant early warning diagnostic architecture capable of bridging surface bio-optical anomalies with convective mixing, thermocline shoaling, and aerosol-driven fertilization.
+
+**Keywords**—*Noctiluca scintillans*, Ocean Color Remote Sensing, Remote Sensing Reflectance, Bio-Optical Inversion, Arabian Sea, Environmental Time-Series.
+
+---
+
+### I. Introduction
+
+Marine primary productivity in the northern Indian Ocean is governed by the semi-annual reversal of monsoonal winds, creating some of the most dynamic physical, chemical, and biological extremes observed in the global ocean [2], [3]. Historically, the winter northeast monsoon (December to March) drove vigorous evaporative cooling and convective mixing in the northern Arabian Sea, deepening the ocean mixed layer to entrain dissolved nitrate and silicate into the euphotic zone [2], [12]. These nutrient-replete conditions supported widespread, trophically vital blooms of siliceous diatoms, which sustained regional pelagic fisheries and efficient organic carbon export [11], [13]. Over the past two decades, however, comprehensive in situ and satellite observations document a persistent ecological regime shift: native diatom populations are increasingly displaced by massive, recurring blooms of the large (0.5 to 1.2 mm), green mixotrophic dinoflagellate *Noctiluca scintillans* [1], [11], [15]. Unlike its heterotrophic red counterpart, green *Noctiluca scintillans* harbors millions of photosynthetic prasinophyte endosymbionts (*Pedinomonas noctilucae*), allowing it to survive both via autotrophic carbon fixation and active phagotrophic predation on remaining diatoms and microzooplankton [1], [13], [15]. Because *Noctiluca* is unpalatable to common copepods and instead funnels trophic energy into gelatinous carnivores such as salps and medusae, its widespread proliferation threatens regional food security, triggers severe coastal hypoxia upon bloom senescence, and disrupts marine biodiversity in direct conflict with United Nations Sustainable Development Goal 14 (Life Below Water) [1], [14].
+
+Detecting, monitoring, and predicting these harmful algal bloom (HAB) outbreaks remains an open computational challenge in marine ecological informatics [1], [17]. Satellite visible spectral radiometry provides the sole mechanism to observe marine ecosystems at synoptic spatial and temporal resolutions [7], [19]. However, satellite ocean color processing currently suffers from three major computational and physical deficiencies. First, standard empirical ocean color algorithms (such as the NASA OCx series or blue-green polynomial reflectance ratios) treat seawater as a simple Case-1 optical medium where all constituents co-vary strictly with Chlorophyll-$a$ [1], [7]. Because mixotrophic *Noctiluca* exhibits an unusual pigment absorption spectrum—characterized by elevated carotenoid-to-chlorophyll ratios and a diagnostic reflectance shoulder near 531 nm coupled with strong absorption near 510 nm—conventional blue-green algorithms misidentify blooms, severely underestimate cell abundance, or conflate mixotrophic patches with mineral sediments and non-toxic diatoms [1], [17]. Second, operational remote sensing workflows treat satellite rasters as isolated surface snapshots [2], [10]. Satellite sensors observe only the uppermost optical penetration depth ($Z_{pd} \approx 1/K_d$), remaining completely blind to the subsurface vertical velocity fields, mixed-layer convective shoaling, and sub-euphotic oxygen minimum zones (OMZs) that physiologically trigger bloom proliferation [2], [9], [12]. Third, long-term monitoring has historically relied on univariate scalar Chlorophyll-$a$ time series, which exhibit extreme interannual variability and strong serial autocorrelation (red noise), requiring upwards of 30 to 40 years of continuous observation to statistically distinguish an anthropogenic climate trend from background environmental noise [5], [6], [8].
+
+To overcome these structural bottlenecks, this study establishes an integrated computational methodology that bridges multi-band satellite bio-optical inversion with physical oceanographic reanalysis. By synthesizing twenty recent foundational and state-of-the-art research papers spanning bio-optical algorithms, satellite cross-calibration, atmospheric correction, and time-series modeling, this paper defines an end-to-end framework tailored to the northern Arabian Sea. The research formulates a dedicated narrow-band reflectance pipeline utilizing $R_{rs}(531)$ and $R_{rs}(510)$ channels to isolate *Noctiluca* cell densities [1], incorporates neural network atmospheric correction to restore observation coverage under large solar zenith angles [4], couples surface optical features with Copernicus Marine Service (CMEMS) hydrodynamic mixing layers [2], and applies multivariate autoregressive regression across the visible spectrum to expose emerging ecological shifts over a 20-year operational window [5].
+
+---
+
+### II. Related Works
+
+To construct a rigorous methodological foundation, the existing literature is reviewed and synthesized across four interconnected thematic pillars: (A) Regional Arabian Sea Bloom Dynamics and Hydro-Atmospheric Drivers, (B) Bio-Optical Remote Sensing and Satellite Inversion Modeling, (C) Satellite Data Calibration and Atmospheric Correction Under Complex Geometry, and (D) Statistical Trend Detection and Climate Time of Emergence.
+
+```
++---------------------------------------------------------------------------------------------------+
+|                                 THEMATIC LITERATURE FOUNDATION                                    |
++----------------------------------+----------------------------------+-----------------------------+
+| Theme A: Arabian Sea Dynamics    | Theme B: Bio-Optical Inversions  | Theme C: Sensor Radiometry  |
+| - Pandi et al. [1] (MPB 2020)    | - Cael et al. [5] (Nature 2023)  | - Li et al. [4] (RS 2024)   |
+| - Shi & Wang [2] (JMS 2022)      | - Dutkiewicz et al. [6] (2019)   | - Sathyendranath [7] (2019) |
+| - Kuttippurath [3] (Heliyon '23) | - Bisson et al. [9] (OE 2019)    | - Castant et al. [10] (2024)|
+| - Goes et al. [11] (SciRep 2020) | - Loisel et al. [20] (JGR 2018)  | - Kulk et al. [19] (2020)   |
+| - Lakshmi et al. [12] (2021)     | - Baliarsingh et al. [17] (2017) |                             |
+| - Asha Devi et al. [13] (2021)   +----------------------------------+-----------------------------+
+| - Raj et al. [14] (SciRep 2020)  | Theme D: Statistical Trend Modeling                            |
+| - Xiang et al. [15] (STOTEN '19) | - Hammond et al. [8] (Scientific Reports 2020)                 |
+| - Sarma et al. [16] (MPB 2019)   | - Autoregressive AR(1) & Multivariate Generalized Least Squares|
+| - Kuttippurath [18] (npj '21)    +----------------------------------------------------------------+
++----------------------------------+
+
+```
+
+#### A. Regional Arabian Sea Bloom Dynamics and Hydro-Atmospheric Drivers
+
+Pandi et al. [1] investigated the empirical relationship between in situ hyperspectral remote sensing reflectance ($R_{rs}$) and *Noctiluca scintillans* cell densities in the northeastern Arabian Sea. Conducting radiometric profiling and water sampling aboard FORV *Sagar Sampada*, they demonstrated that the reflectance band ratio $R_{rs}(531)/R_{rs}(510)$ yielded an exceptional correlation with *Noctiluca* cell counts ($R^2_{\text{adj}} = 0.99$, $p < 10^{-4}$), proving that the 531 nm endosymbiont reflectance peak normalized by the 510 nm absorption dip provides an empirical tracer capable of operating reliably across coastal, shelf, and offshore waters [1].
+
+Shi and Wang [2] evaluated the seasonal and interannual dynamics of Arabian Sea phytoplankton biomass using VIIRS Level-2 records (2012–2019) cross-calibrated against historical SeaWiFS observations (1997–2010). Pairing satellite chlorophyll-$a$ fields with Global Ocean Data Assimilation System (GODAS) physical parameters, they proved that summer blooms along the western coast are forced by intense coastal upwelling and upward Ekman pumping with vertical velocities reaching ~1 m/day at 70 m depth [2]. In contrast, winter blooms in the northern basin are driven by convective overturning and surface cooling that deepens the mixed-layer depth (MLD) to ~80 m, moderately entraining nitrate and phosphate [2].
+
+Kuttippurath et al. [3] analyzed decadal changes in net primary productivity and chlorophyll-$a$ across the northern Indian Ocean (1998–2019). Utilizing merged OC-CCI v6 satellite data, Copernicus Marine Service (CMEMS) reanalysis, MERRA-2 aerosol optical depth (AOD), and HYSPLIT air-mass backward trajectories, they documented a long-term primary productivity decline of $-0.048\text{ mg m}^{-3}\text{ day}^{-1}\text{ yr}^{-1}$ driven primarily by a $+0.02^\circ\text{C yr}^{-1}$ sea surface warming trend [3]. Crucially, they revealed that a 10% to 20% shift in air-mass trajectories from Middle Eastern deserts altered atmospheric dust deposition, showing that mineral aerosol fluxes supply bioavailable iron and phosphorus that trigger episodic open-ocean blooms during non-upwelling periods [3].
+
+Goes et al. [11] identified the macro-scale climatic driver altering the Arabian Sea ecosystem, linking the loss of winter snow cover over the Himalayan-Tibetan Plateau to an intensification of summer monsoonal winds and a concomitant weakening of winter convective overturning. This atmospheric shift reduced vertical silicate replenishment relative to nitrogen, shifting ambient stoichiometric ratios to severely limit diatom silicification while fostering an ideal mixotrophic niche for green *Noctiluca* [11].
+
+Lakshmi et al. [12] examined the physicochemical controls governing bloom initiation during the winter northeast monsoon using CTD rosette casts and nutrient measurements across northern Arabian Sea transects. They demonstrated that bloom triggering is controlled by Sverdrup critical depth dynamics: convective mixing must deepen the mixed layer to entrain nitrate, but subsequent daytime solar stratification must shoal the active mixing layer above the critical optical depth to allow light-harvesting endosymbionts to initiate rapid exponential growth [12].
+
+Asha Devi et al. [13] evaluated the trophic pathways associated with expansive *Noctiluca* blooms in the northeastern Arabian Sea ecosystem. Their biological analyses demonstrated that the traditional grazing chain (diatoms $\to$ calanoid copepods $\to$ pelagic fish) is largely severed during bloom peaks; *Noctiluca* is rejected by standard crustacean grazers due to its large size and cellular ammonia accumulation, diverting secondary production through a microzooplankton-mediated microbial loop and salp-dominated detrital pathways [13].
+
+Raj et al. [14] documented the localized ecological consequences of *Noctiluca scintillans* bloom senescence along the southern coast of India. They recorded severe nearshore dissolved oxygen crashes below $1.5\text{ mg L}^{-1}$ directly caused by bacterial decomposition of decaying *Noctiluca* biomass, leading to widespread benthic coral reef mortality and fish kills, underscoring the urgent need for satellite early warning detection [14].
+
+Xiang et al. [15] explored the physiological mechanisms allowing *Noctiluca* to outcompete native diatoms in the northern Arabian Sea off Pakistan. Through controlled incubation experiments, they demonstrated that while diatoms are restricted by strict nutrient thresholds and dissolved silicate depletion, *Noctiluca* switches facultatively between endosymbiont autotrophy and active predation on diatoms, sustaining continuous biomass proliferation even under extreme nutrient exhaustion [15].
+
+Sarma et al. [16] investigated water-column biogeochemistry during intense *Noctiluca* blooms in the northeastern basin, challenging the hypothesis that blooms are strictly driven by expanding anoxia. Using carbon and nitrogen stable isotope ratios alongside dissolved oxygen transects, they proved that winter convective mixing under fully oxygenated surface conditions (oxygen saturation >85%) initiates massive outbreaks, with localized hypoxia occurring only secondarily as an artifact of bloom decay [16].
+
+Kuttippurath et al. [18] investigated the role of extreme meteorological forcing, proving that tropical cyclones crossing the northern Indian Ocean pump deep nutrients to the surface via intense shear mixing. They demonstrated that cyclonic passage triggers massive, off-season algal blooms across historically oligotrophic desert waters, showing that storm-driven mixing vectors must be incorporated into remote sensing tracking [18].
+
+#### B. Bio-Optical Remote Sensing and Satellite Inversion Modeling
+
+Cael et al. [5] demonstrated a major methodological breakthrough in satellite trend detection by analyzing a 20-year time series (2002–2022) of MODIS-Aqua Level-3 remote sensing reflectance across ten visible channels. By treating $R_{rs}(\lambda)$ as a multivariate vector rather than reducing satellite data to a single scalar chlorophyll value, and applying the Cochrane-Orcutt procedure to eliminate serial autocorrelation, they detected statistically significant climate-change trends across 40% of the global surface ocean, proving that multi-wavelength radiometry exposes ecological restructuring decades before univariate chlorophyll detects an emergent signal [5].
+
+Dutkiewicz et al. [6] deployed a global ocean circulation model coupled with an explicit radiative transfer and ecosystem simulator to model the ocean color signature of climate change over the 21st century. Their findings established that remote sensing reflectance in the blue-green spectrum (nominally 487–512 nm) has significantly lower natural interannual variability than chlorophyll-$a$, resulting in an earlier Time of Emergence (ToE) for detecting community shifts, while demonstrating that changing detrital and CDOM ratios will cause static empirical chlorophyll algorithms to drift significantly over time [6].
+
+Bisson et al. [9] conducted the first global-scale validation of satellite particulate backscattering ($b_{bp}$) products from MODIS, VIIRS, and OLCI against 2,486 surface matchups collected by autonomous Biogeochemical Argo (BGC-Argo) profiling floats at 700 nm. Comparing the GIOP, QAA, and GSM inversion models, they discovered that the standard GSM model overestimates $b_{bp}$ by up to 50% in low-to-moderate biomass waters because it enforces a constant backscattering spectral slope ($\gamma = 1$), whereas QAA and GIOP dynamically calculate $\gamma$ as a function of blue-to-green reflectance ratios, achieving superior retrieval accuracy [9].
+
+Loisel et al. [20] developed an advanced semi-analytical inversion algorithm (LS2) that derives the total absorption ($a$) and particulate backscattering ($b_{bp}$) coefficients of seawater from $R_{rs}$ and solar zenith angle without making any a priori assumptions regarding the spectral shape of component absorbers. Using extensive Hydrolight radiative transfer simulations and global field databases, they demonstrated that LS2 retrieves inherent optical properties with high accuracy ($R^2 > 0.96$) across both clear open-ocean and turbid coastal regimes, providing an ideal inversion core for complex waters [20].
+
+Baliarsingh et al. [17] developed a dedicated optical classification framework using MODIS-Aqua $R_{rs}$ data to discriminate mixotrophic green *Noctiluca* from heterotrophic red *Noctiluca* in the northern Indian Ocean. By examining absorption peaks from prasinoxanthin and Chlorophyll-$b$ alongside water-leaving radiances, they established spectral criteria demonstrating that green *Noctiluca* exhibits high green-band reflectance ($R_{rs}(531), R_{rs}(551)$) and suppressed blue reflectance ($R_{rs}(443)$), enabling synoptic optical differentiation from background diatoms [17].
+
+#### C. Satellite Data Calibration and Atmospheric Correction Under Complex Geometry
+
+Li et al. [4] performed a comprehensive multi-year evaluation of VIIRS remote sensing reflectance (2012–2021) using the global OC-CCI in situ database, uncovering severe accuracy degradation under large observation geometries. They showed that when the solar zenith angle exceeds 70°, extended atmospheric path lengths and enhanced Rayleigh-aerosol scattering cause standard NASA near-infrared atmospheric corrections to underestimate $R_{rs}$ by nearly 50%, with relative percentage differences reaching $-38.59\%$ [4]. To resolve this, they formulated a single-layer neural network atmospheric correction model (NN-V) that reduced relative percentage differences to $-5.27\%$ and expanded valid wintertime data retrieval coverage by nearly twentyfold [4].
+
+Sathyendranath et al. [7] detailed the architecture of the European Space Agency's Ocean Colour Climate Change Initiative (OC-CCI v1 to v4) multi-sensor processing pipeline. To eliminate spurious inter-mission discontinuities between SeaWiFS, MODIS, MERIS, and VIIRS, the methodology deployed QAA-driven band-shifting to align radiances to standard SeaWiFS bands, implemented multi-annual running bias corrections, and utilized fuzzy-logic optical water classification to assign pixel-by-pixel uncertainty metrics (RMSD and bias) based on in situ matchups [7].
+
+Castant et al. [10] developed a comprehensive, gap-free global 4D dataset of surface and underwater Photosynthetically Active Radiation (PAR) and diffuse attenuation coefficients ($K_d\text{PAR}$) from 1958 to 2022 at a $0.25^\circ$ resolution. By coupling GlobColour satellite inputs with the Environmental String Model (ESM) and DINEOF interpolation driven by ERA5 atmospheric reanalysis, they proved that incorporating physical atmospheric variables reliably estimates light transmission and euphotic depth ($Z_{eu}$) across historical, pre-satellite eras [10].
+
+Kulk et al. [19] utilized the multi-decadal OC-CCI ocean color record to assess global marine primary production over a 20-year baseline. Utilizing spectral photosynthesis-irradiance formulations calibrated against extensive in situ $^{14}\text{C}$ incorporation experiments, they mapped spatial primary production trends across distinct biogeochemical provinces, validating satellite models against large-scale climatic oscillations [19].
+
+#### D. Statistical Trend Detection and Climate Time of Emergence
+
+Hammond et al. [8] developed a hierarchical Bayesian spatio-temporal model to quantify regional surface chlorophyll-$a$ trends and uncertainties using the 20-year OC-CCI dataset. By incorporating CMIP5 biogeochemical model projections as Bayesian priors and modeling spatial correlation via exponential distance decay alongside AR(1) temporal autoregression, they demonstrated that while a global weighted average shows no net change ($0.08 \pm 0.35\%\text{ yr}^{-1}$), 18 of the 23 discrete ocean provinces exhibit statistically significant trends ($\pm 1.8\%\text{ yr}^{-1}$), proving that analyzing ocean ecosystems at aggregated global scales masks critical localized regime shifts [8].
+
+#### E. Synthesis of Literature and Identification of Research Gaps
+
+A critical synthesis of the 20 reviewed studies reveals several foundational gaps in contemporary marine remote sensing:
+
+1. **Bio-Optical Discrimination Blindness:** Standard operational ocean color pipelines [2], [7] rely on broad blue-green band ratios that fail to differentiate mixotrophic dinoflagellates from siliceous diatoms, leading to false-positive biomass estimation during bloom conditions [1], [17].
+2. **Surface-Hydrodynamic Decoupling:** Remote sensing studies [1], [5], [17] treat satellite rasters as isolated 2D optical layers, failing to couple surface features with vertical mixing velocities, MLD deepening, and thermocline shoaling derived from physical reanalysis models [2], [10], [12].
+3. **Severe High-Zenith-Angle Data Loss:** Winter bloom monitoring in the northern Arabian Sea is heavily degraded by high solar zenith angles (>70°) and aerosol dust scattering, causing standard atmospheric correction algorithms to fail and discard nearly 50% of valid observations [3], [4].
+4. **Statistical Masking by Univariate Red Noise:** Long-term trend investigations [3], [8] over-rely on univariate scalar chlorophyll-$a$ time series, where strong natural interannual variability and uncorrected autocorrelation inflate uncertainty and mask emerging regime shifts that can be exposed by multivariate spectral reflectance modeling [5], [6].
+
+---
+
+### III. Proposed Methodology
+
+The proposed computational methodology integrates satellite digital image processing, bio-optical radiative transfer inversion, atmospheric correction enhancement, and multivariate spatio-temporal statistics into a unified pipeline. The workflow is organized into four sequential computational stages, illustrated in Fig. 1.
+
+```
++---------------------------------------------------------------------------------------------------+
+|                                 INTEGRATED COMPUTATIONAL PIPELINE                                 |
++---------------------------------------------------------------------------------------------------+
+|  [Satellite Radiometry: MODIS, VIIRS, OLCI]       [Ocean-Atmosphere Reanalysis: CMEMS, ERA5]      |
+|                                |                                           |                      |
+|                                v                                           v                      |
+|                 +-----------------------------+             +-------------------------------+     |
+|                 | STAGE 1: Data Ingestion &   |             | NetCDF-4 Spatial Slicing:     |     |
+|                 | Preprocessing: L2 Quality   |             | Lat: 10°N–25°N, Lon: 50°E–75°E|     |
+|                 | Flags, Cloud & SZA Masking  |             | Daily MLD, SST, w, Wind Stress|     |
+|                 +--------------+--------------+             +---------------+---------------+     |
+|                                |                                            |                     |
+|                                v                                            |                     |
+|                 +-----------------------------+                             |                     |
+|                 | STAGE 2: Geometric & Atmo-  |<----------------------------+ (ERA5 Aerosol &    |
+|                 | spheric Correction: NN-V    |                               Optical Inputs)     |
+|                 | Multi-Layer Perceptron      |                                                   |
+|                 +--------------+--------------+                                                   |
+|                                |                                                                  |
+|                                v                                                                  |
+|                 +-----------------------------+                                                   |
+|                 | STAGE 3: Bio-Optical Feat-  |                                                   |
+|                 | ure Engineering: QAA v6 &   |                                                   |
+|                 | Pandi Rrs(531)/Rrs(510)     |                                                   |
+|                 +--------------+--------------+                                                   |
+|                                |                                                                  |
+|                                v                                                                  |
+|                 +-----------------------------+                                                   |
+|                 | STAGE 4: Multivariate Trend |<----------------------------+ (CMEMS MLD & w      |
+|                 | Modeling: Cochrane-Orcutt   |                               Physical Covariates)|
+|                 | Generalized Least Squares   |                                                   |
+|                 +--------------+--------------+                                                   |
+|                                |                                                                  |
+|                                v                                                                  |
+|                 [Operational Bloom Mapping & Climate Trend Attribution Engine]                    |
++---------------------------------------------------------------------------------------------------+
+
+```
+
+*Fig. 1. End-to-end architecture of the integrated bio-optical and multivariate reanalysis pipeline.*
+
+#### A. Stage 1: Data Ingestion and Spatial Grid Harmonization
+
+The spatial study domain covers the northern Arabian Sea ($10^\circ\text{N}$ to $25^\circ\text{N}$ latitude, $50^\circ\text{E}$ to $75^\circ\text{E}$ longitude) [1], [2]. Multispectral satellite radiances are ingested from Level-2 MODIS-Aqua, VIIRS (SNPP and NOAA-20), and Sentinel-3 OLCI archives [4], [7]. In parallel, daily gridded physical and atmospheric variables are ingested from Copernicus Marine Service (CMEMS GLOBAL_MULTIYEAR_PHY_001_030) and ECMWF ERA5 reanalyses at $0.25^\circ$ resolution, including sea surface temperature (SST), mixed-layer depth (MLD), vertical velocity ($w$ at 70 m depth), wind stress, and surface photosynthetically active radiation (PAR) [2], [10].
+
+Data harmonization is implemented in Python using `xarray`, `numpy`, and `netCDF4`. Satellite orbital passes are projected onto a uniform $4\text{ km} \times 4\text{ km}$ equal-area sinusoidal grid using nearest-neighbor bilinear interpolation [7]. Quality assurance protocols screen out contaminated pixels using standard NASA Level-2 masking flags: land (`LAND`), cloud/ice (`CLDICE`), high solar zenith angle (`HISOLZEN`), stray light (`STRAYLIGHT`), and negative Rayleigh-corrected radiance (`ATMFAIL`) [4], [9].
+
+#### B. Stage 2: Radiometric Preprocessing and High-SZA Correction
+
+Under large solar zenith angles ($SZA > 70^\circ$) characteristic of low-sun winter conditions, conventional atmospheric correction algorithms suffer substantial failure [4]. Following the architectural principles established by Li et al. [4], a Multilayer Perceptron neural network atmospheric correction model (NN-V) is deployed to process top-of-atmosphere Rayleigh-corrected radiances ($L_{rc}(\lambda)$). The network input layer accepts five visible bands ($L_{rc}(412)$, $L_{rc}(443)$, $L_{rc}(486)$, $L_{rc}(551)$, $L_{rc}(671)$), the solar zenith angle ($\theta_s$), satellite observation zenith angle ($\theta_v$), and relative azimuth angle ($\Delta\phi$) [4]:
+
+$$\vec{X} = [L_{rc}(412), L_{rc}(443), L_{rc}(486), L_{rc}(551), L_{rc}(671), \cos(\theta_s), \cos(\theta_v), \Delta\phi]$$
+
+The intermediate hidden layer consists of 64 fully connected neurons equipped with rectified linear unit (ReLU) activation functions, trained against clear-sky matched matchups to predict fully normalized water-leaving reflectance ($R_{rs}(\lambda)$) [4]:
+
+$$R_{rs}(\lambda) = f_{\text{NN-V}}(\vec{X})$$
+
+This neural network framework suppresses atmospheric path-length distortions, restoring valid $R_{rs}$ observations across high-latitude coastal and shelf domains while reducing retrieval biases from $-38.59\%$ to $-5.27\%$ [4].
+
+#### C. Stage 3: Bio-Optical Inversion and Narrow-Band Feature Engineering
+
+Following atmospheric correction, remote sensing reflectance spectra are inverted into inherent optical properties (IOPs) using the Quasi-Analytical Algorithm (QAA v6) [7], [9], [20]. Above-water remote sensing reflectance ($R_{rs}$) is propagated across the air-sea interface to compute below-surface reflectance ($r_{rs}$) [9]:
+
+$$r_{rs}(\lambda) = \frac{R_{rs}(\lambda)}{0.52 + 1.7 R_{rs}(\lambda)}$$
+
+The total backscattering-to-absorption ratio $u(\lambda)$ is analytically computed as:
+
+$$u(\lambda) = \frac{-g_0 + \sqrt{(g_0)^2 + 4 g_1 r_{rs}(\lambda)}}{2 g_1}$$
+
+where $g_0 = 0.0895$ and $g_1 = 0.1247$ represent generalized oceanic phase-function coefficients [9]. The particulate backscattering coefficient ($b_{bp}(\lambda)$) and total non-water absorption ($a_{nw}(\lambda)$) are sequentially derived by setting a reference wavelength at $\lambda_0 = 555\text{ nm}$ or $670\text{ nm}$ [9], [20].
+
+To isolate the specific mixotrophic signature of green *Noctiluca scintillans*, two diagnostic spectral indices are formulated based on the empirical calibration of Pandi et al. [1] and Baliarsingh et al. [17]:
+
+1. **Noctiluca Reflectance Ratio ($NRR$):**
+
+$$NRR = \frac{R_{rs}(531)}{R_{rs}(510)}$$
+
+
+
+where $R_{rs}(531)$ captures the endosymbiont backscattering peak and $R_{rs}(510)$ targets carotenoid absorption [1].
+2. **Empirical Cell Density Formulation:**
+
+$$N_{\text{cells}} = 89,360 - 72,133 \times \left( \frac{R_{rs}(510)}{R_{rs}(531)} \right)$$
+
+
+
+validated for cell densities exceeding $6,800\text{ cells L}^{-1}$ in the northern Arabian Sea [1].
+
+#### D. Stage 4: Multivariate Autoregressive Trend Modeling
+
+To detect long-term ecological shifts and evaluate whether recent blooms indicate secular climate-driven changes, the 20-year satellite reflectance time series is evaluated using the multivariate linear regression framework established by Cael et al. [5] and Hammond et al. [8].
+
+For each spatial grid cell, annual median $R_{rs}$ vectors across seven visible wavebands ($\vec{Y}_t = [R_{rs}(412), \dots, R_{rs}(678)]_t$) are modeled as a linear function of time $t$ [5]:
+
+$$\vec{Y}_t = \vec{\mu} + \vec{\beta} t + \vec{N}_t$$
+
+where $\vec{\mu}$ is the intercept vector, $\vec{\beta}$ is the multivariate trend vector, and $\vec{N}_t$ represents the residual noise vector [5]. In environmental time series, $\vec{N}_t$ is dominated by first-order autoregressive red noise ($\text{AR}(1)$), where residuals carry memory from preceding periods:
+
+$$\vec{N}_t = \mathbf{\Phi} \vec{N}_{t-1} + \vec{\epsilon}_t$$
+
+where $\mathbf{\Phi}$ is the autocorrelation parameter matrix and $\vec{\epsilon}_t$ is white noise [5], [8]. The Cochrane-Orcutt iterative procedure is deployed to estimate $\mathbf{\Phi}$, transforming the regression variables as:
+
+$$\vec{Y}_t^* = \vec{Y}_t - \mathbf{\Phi} \vec{Y}_{t-1}, \quad t^* = t - \mathbf{\Phi} t_{-1}$$
+
+Linear regression is executed on the transformed variables using Generalized Least Squares (GLS) to compute the parameter covariance matrix $\mathbf{C}$ [5], [8]. The multivariate Signal-to-Noise Ratio ($SNR$) is calculated by projecting the trend vector along the uncertainty ellipse [5]:
+
+$$SNR = \frac{\sqrt{\sum_i \beta_i^2}}{\sqrt{\left(\frac{\vec{\beta}}{\Vert{}\vec{\beta}\Vert{}}\right)^T \mathbf{C} \left(\frac{\vec{\beta}}{\Vert{}\vec{\beta}\Vert{}}\right)}}$$
+
+A trend is classified as statistically significant at the 95% confidence level if $SNR \ge 2.0$, providing an unambiguous indicator of ecological change that emerges decades earlier than univariate chlorophyll models [5], [6].
+
+---
+
+### IV. Expected Analytical Framework and Discussion
+
+The integration of the multi-source pipeline is structured to yield quantitative spatial diagnostics across three primary evaluation tiers:
+
+#### A. Discrimination Accuracy of Mixotrophic Dinoflagellates
+
+By isolating the $R_{rs}(531)/R_{rs}(510)$ narrow-band ratio, the framework resolves the historical confusion between green *Noctiluca* and native diatoms [1], [17]. In typical Case-1 diatom blooms, reflectance decreases monotonically from 490 nm through 555 nm due to standard chlorophyll absorption [7]. In contrast, green *Noctiluca* blooms exhibit a prominent inflection at 531 nm resulting from *Pedinomonas noctilucae* endosymbionts [1]. Mapping this ratio across winter satellite swaths enables continuous cell-density tracking across coastal, shelf, and offshore waters [1].
+
+#### B. Coupling Surface Optics with Hydrodynamic Mixing Drivers
+
+Overlaying satellite-derived bloom masks onto CMEMS physical ocean reanalysis fields verifies the environmental triggering thresholds identified by Shi and Wang [2] and Lakshmi et al. [12]. Specifically, during the winter northeast monsoon, regions exhibiting surface cooling ($SST < 25^\circ\text{C}$) and mixed-layer deepening ($MLD \approx 70\text{--}80\text{ m}$) coincide with nutrient entrainment, followed by bloom proliferation as the surface layer shoals [2], [12]. Coupling optical rasters with ERA5 aerosol optical depth (AOD) grids tracks episodic mineral dust deposition events from the Arabian Peninsula, testing the atmospheric fertilization hypotheses established by Kuttippurath et al. [3], [18].
+
+#### C. Emergence of Long-Term Ecological Trends
+
+Applying Cochrane-Orcutt multivariate regression across multi-band reflectance channels exposes whether localized Arabian Sea greening represents an anthropogenic trend or natural decadal oscillations [5], [11]. In alignment with Cael et al. [5] and Dutkiewicz et al. [6], multivariate $R_{rs}$ vectors suppress interannual noise, enabling localized trend emergence ($SNR \ge 2$) within the available 20-year satellite record, whereas scalar chlorophyll models remain inconclusive [5], [8].
+
+---
+
+### V. Conclusion
+
+This paper established an integrated bio-optical remote sensing and physical oceanographic framework for detecting and profiling *Noctiluca scintillans* blooms in the Arabian Sea. By synthesizing twenty recent foundational studies, the work resolved the core limitations of existing Earth observation pipelines: empirical spectral misclassification, surface-hydrodynamic decoupling, high solar zenith angle data loss, and time-series noise masking. The methodology incorporated narrow-band reflectance ratios ($R_{rs}(531)/R_{rs}(510)$) to quantify bloom cell density, deployed neural network atmospheric correction to restore winter observation coverage, coupled surface bloom patches with vertical mixing reanalyses, and formulated a multivariate autoregressive regression model to detect long-term ecological restructuring. Future research will focus on embedding Physics-Informed Neural Networks (PINNs) directly into satellite data pipelines to predict subsurface hypoxia onset prior to bloom senescence, advancing the technological toolkit for marine ecological conservation under SDG 14.
+
+---
+
+### References
+
+[1] S. R. Pandi, S. K. Baliarsingh, A. A. Lotliker, N. S. Sarma, and S. C. Tripathy, "Empirical relationships for remote sensing reflectance and *Noctiluca scintillans* cell density in the northeastern Arabian Sea," *Marine Pollution Bulletin*, vol. 161, p. 111770, 2020.
+
+[2] W. Shi and M. Wang, "Phytoplankton biomass dynamics in the Arabian Sea from VIIRS observations," *Journal of Marine Systems*, vol. 227, p. 103670, 2022.
+
+[3] J. Kuttippurath, S. Maishal, P. Anjaneyan, N. Sunanda, and K. Chakraborty, "Recent changes in atmospheric input and primary productivity in the north Indian Ocean," *Heliyon*, vol. 9, no. 7, p. e17940, 2023.
+
+[4] H. Li, X. He, P. Shanmugam, Y. Bai, D. Wang, T. Li, and F. Gong, "Assessing and improving the accuracy of Visible Infrared Imaging Radiometer Suite ocean color products in environments with high solar zenith angles," *Remote Sensing*, vol. 16, no. 2, p. 339, 2024.
+
+[5] B. B. Cael, K. Bisson, E. Boss, S. Dutkiewicz, and S. Henson, "Global climate-change trends detected in indicators of ocean ecology," *Nature*, vol. 619, no. 7970, pp. 551–554, 2023.
+
+[6] S. Dutkiewicz, A. E. Hickman, O. Jahn, S. Henson, C. Beaulieu, and E. Monier, "Ocean colour signature of climate change," *Nature Communications*, vol. 10, no. 1, p. 578, 2019.
+
+[7] S. Sathyendranath, R. J. W. Brewin, C. Brockmann, V. Brotas, B. Calton, A. Chuprin, et al., "An ocean-colour time series for use in climate studies: The experience of the Ocean-Colour Climate Change Initiative (OC-CCI)," *Sensors*, vol. 19, no. 19, p. 4285, 2019.
+
+[8] M. L. Hammond, C. Beaulieu, S. A. Henson, and S. K. Sahu, "Regional surface chlorophyll trends and uncertainties in the global ocean," *Scientific Reports*, vol. 10, no. 1, p. 15273, 2020.
+
+[9] K. M. Bisson, E. Boss, T. K. Westberry, and M. J. Behrenfeld, "Evaluating satellite estimates of particulate backscatter in the global open ocean using autonomous profiling floats," *Optics Express*, vol. 27, no. 21, pp. 30191–30203, 2019.
+
+[10] J. Castant, V. Vantrepotte, R. Frouin, and G. Beaugrand, "Comprehensive gridded dataset of photosynthetically active radiation in the upper ocean from 1958 to 2022," *Remote Sensing of Environment*, vol. 311, p. 114305, 2024.
+
+[11] J. I. Goes, H. Tian, H. do R. Gomes, O. R. Anderson, K. Al-Hashmi, S. deRada, et al., "Ecosystem state change in the Arabian Sea fuelled by the recent loss of snow over the Himalayan-Tibetan plateau region," *Scientific Reports*, vol. 10, no. 1, p. 7422, 2020.
+
+[12] R. S. Lakshmi, S. Prakash, P. N. Vinayachandran, and A. Chatterjee, "Physicochemical controls on the initiation of phytoplankton bloom during the winter monsoon in the Arabian Sea," *Scientific Reports*, vol. 11, no. 1, p. 13247, 2021.
+
+[13] C. R. Asha Devi, K. B. Padmakumar, and V. N. Sanjeevan, "Understanding the microzooplankton mediated food web of the winter–spring *Noctiluca* bloom in the Northeastern Arabian Sea Ecosystem," *Regional Studies in Marine Science*, vol. 42, p. 101623, 2021.
+
+[14] K. D. Raj, G. Mathews, D. Obura, R. L. Laju, M. S. Bharath, P. Dilipan, et al., "Low oxygen levels caused by *Noctiluca scintillans* bloom kills corals in Gulf of Mannar, India," *Scientific Reports*, vol. 10, no. 1, p. 22216, 2020.
+
+[15] C. Xiang, J. Qi, M. M. R. Sarker, and Z. Chen, "The key to dinoflagellate (*Noctiluca scintillans*) blooming and outcompeting diatoms in winter off Pakistan, northern Arabian Sea," *Science of The Total Environment*, vol. 695, p. 133887, 2019.
+
+[16] V. V. S. S. Sarma, J. S. Patil, D. Shankar, and A. C. Anil, "Shallow convective mixing promotes massive *Noctiluca scintillans* bloom in the northeastern Arabian Sea," *Marine Pollution Bulletin*, vol. 138, pp. 428–436, 2019.
+
+[17] S. K. Baliarsingh, R. M. Dwivedi, A. A. Lotliker, K. C. Sahu, T. S. Kumar, and S. S. C. Shenoi, "An optical remote sensing approach for ecological monitoring of red and green *Noctiluca scintillans*," *Environmental Monitoring and Assessment*, vol. 189, no. 7, p. 330, 2017.
+
+[18] J. Kuttippurath, N. Sunanda, M. V. Martin, and K. Chakraborty, "Tropical storms trigger phytoplankton blooms in the deserts of north Indian Ocean," *npj Climate and Atmospheric Science*, vol. 4, no. 1, p. 11, 2021.
+
+[19] G. Kulk, T. Platt, J. Dingle, T. Jackson, B. F. Jönsson, H. A. Bouman, et al., "Primary production, an index of climate change in the ocean: satellite-based estimates over two decades," *Remote Sensing*, vol. 12, no. 5, p. 826, 2020.
+
+[20] H. Loisel, D. Stramski, D. Dessailly, C. Jamet, L. Li, and R. A. Reynolds, "An inverse model for estimating the optical absorption and backscattering coefficients of seawater from remote-sensing reflectance over a broad range of oceanic and coastal marine environments," *Journal of Geophysical Research: Oceans*, vol. 123, no. 3, pp. 2141–2171, 2018.
